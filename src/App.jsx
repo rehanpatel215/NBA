@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { jsPDF } from "jspdf";
 
 /* ─────────────────────────────────────────────
    MOCK DATABASE  (replace with Firebase in prod)
@@ -13,34 +14,34 @@ const KNOWN_ORGS = [
 ];
 
 const DEMO_USERS = [
-  { id:"s1", role:"student", name:"Arjun Sharma",   email:"arjun@college.edu",   password:"student123", rollNo:"21CS001", branch:"CSE", year:"3rd Year", avatar:"AS" },
-  { id:"s2", role:"student", name:"Priya Nair",     email:"priya@college.edu",   password:"student123", rollNo:"21CS002", branch:"CSE", year:"3rd Year", avatar:"PN" },
-  { id:"f1", role:"faculty", name:"Dr. Meera Rao",  email:"meera@college.edu",   password:"faculty123", branch:"CSE", designation:"Associate Professor", avatar:"MR" },
-  { id:"f2", role:"faculty", name:"Prof. Suresh K", email:"suresh@college.edu",  password:"faculty123", branch:"ECE", designation:"Professor", avatar:"SK" },
-  { id:"d1", role:"hod",     name:"Dr. Ramesh Iyer",email:"hod@college.edu",     password:"hod123",     branch:"ALL", designation:"Head of Department", avatar:"RI" },
+  { id:"s1", role:"student", name:"Arjun Sharma",   email:"arjun@college.edu",   password:"student123", rollNo:"21CS001", branch:"CSE-AIML", year:"3rd Year", avatar:"AS" },
+  { id:"s2", role:"student", name:"Priya Nair",     email:"priya@college.edu",   password:"student123", rollNo:"21CS002", branch:"CSE-AIML", year:"3rd Year", avatar:"PN" },
+  { id:"f1", role:"faculty", name:"Dr. Meera Rao",  email:"meera@college.edu",   password:"faculty123", branch:"CSE-AIML", designation:"Associate Professor", avatar:"MR" },
+  { id:"f2", role:"faculty", name:"Prof. Suresh K", email:"suresh@college.edu",  password:"faculty123", branch:"CSE-AIML", designation:"Professor", avatar:"SK" },
+  { id:"d1", role:"hod",     name:"Dr. Ramesh Iyer",email:"hod@college.edu",     password:"hod123",     branch:"CSE-AIML", designation:"Head of Department", avatar:"RI" },
 ];
 
 const INITIAL_ENTRIES = [
-  { id:"e1", studentId:"s1", studentName:"Arjun Sharma", rollNo:"21CS001", branch:"CSE", year:"3rd Year",
+  { id:"e1", studentId:"s1", studentName:"Arjun Sharma", rollNo:"21CS001", branch:"CSE-AIML", year:"3rd Year",
     category:"Hackathon", title:"Smart India Hackathon 2024", organizer:"MHRD", date:"2024-08-15",
     position:"Winner", level:"National", hasCertificate:true, qrScanned:true,
     status:"approved", aiScore:95, aiFlags:[], addedBy:"student", submittedAt:"2024-08-20",
     mentorNote:"" },
-  { id:"e2", studentId:"s2", studentName:"Priya Nair", rollNo:"21CS002", branch:"CSE", year:"3rd Year",
+  { id:"e2", studentId:"s2", studentName:"Priya Nair", rollNo:"21CS002", branch:"CSE-AIML", year:"3rd Year",
     category:"Certification", title:"AWS Cloud Practitioner", organizer:"Amazon Web Services", date:"2024-07-20",
     position:"Certified", level:"International", hasCertificate:true, qrScanned:false,
     status:"flagged", aiScore:62, aiFlags:["QR code not scanned — certificate authenticity unverified","Organizer name slightly ambiguous ('Amazon Web Services' vs 'AWS')"],
     addedBy:"student", submittedAt:"2024-07-22", mentorNote:"" },
-  { id:"e3", studentId:"s1", studentName:"Arjun Sharma", rollNo:"21CS001", branch:"CSE", year:"3rd Year",
+  { id:"e3", studentId:"s1", studentName:"Arjun Sharma", rollNo:"21CS001", branch:"CSE-AIML", year:"3rd Year",
     category:"Workshop", title:"ML & AI Bootcamp", organizer:"IIT Bombay", date:"2028-09-10",
     position:"Participated", level:"National", hasCertificate:false, qrScanned:false,
     status:"flagged", aiScore:30, aiFlags:["Date is in the future (2028) — likely a typo","No certificate attached — cannot verify participation"],
     addedBy:"student", submittedAt:"2024-09-11", mentorNote:"" },
-  { id:"e4", studentId:"s2", studentName:"Priya Nair", rollNo:"21CS002", branch:"CSE", year:"3rd Year",
+  { id:"e4", studentId:"s2", studentName:"Priya Nair", rollNo:"21CS002", branch:"CSE-AIML", year:"3rd Year",
     category:"Conference", title:"International Conf on AI", organizer:"Springer", date:"2024-12-01",
     position:"Paper Accepted", level:"International", hasCertificate:true, qrScanned:true,
     status:"approved", aiScore:97, aiFlags:[], addedBy:"student", submittedAt:"2024-12-03", mentorNote:"" },
-  { id:"e5", studentId:"f1", studentName:"Dr. Meera Rao", rollNo:"—", branch:"CSE", year:"Faculty",
+  { id:"e5", studentId:"f1", studentName:"Dr. Meera Rao", rollNo:"—", branch:"CSE-AIML", year:"Faculty",
     category:"Research Mentorship", title:"Deep Learning Research Group — Mentored 6 students",
     organizer:"CSE Dept", date:"2024-06-01", position:"Mentor", level:"Institutional",
     hasCertificate:false, qrScanned:false, status:"approved", aiScore:100, aiFlags:[],
@@ -108,7 +109,7 @@ function runAIValidation(entry, allEntries, currentUserId) {
 ───────────────────────────────────────────── */
 const CATEGORIES = ["Hackathon","Workshop","Certification","Internship","Conference","Competition","Research Mentorship","Project"];
 const YEARS = ["1st Year","2nd Year","3rd Year","4th Year"];
-const BRANCHES = ["CSE","ECE","MECH","CIVIL","EEE"];
+const BRANCHES = ["CSE-AIML"];
 const LEVELS = ["International","National","State","Industry","Institutional"];
 const catColors = { Hackathon:"#f59e0b", Workshop:"#3b82f6", Certification:"#10b981", Internship:"#8b5cf6", Conference:"#ef4444", Competition:"#ec4899", "Research Mentorship":"#06b6d4", Project:"#84cc16" };
 const catIcons  = { Hackathon:"⚡", Workshop:"🔧", Certification:"🏅", Internship:"💼", Conference:"🎤", Competition:"🏆", "Research Mentorship":"🔬", Project:"📐" };
@@ -121,14 +122,14 @@ const G = `
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#060912}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#1e293b;border-radius:3px}
-.syne{font-family:'Syne',sans-serif}
+.syne{font-family:'Syne',sans-serif;letter-spacing:-0.02em;word-break:break-word}
 .mono{font-family:'DM Mono',monospace}
 .sans{font-family:'DM Sans',sans-serif}
 
 /* Layout */
-.shell{display:flex;min-height:100vh;background:#060912;color:#e2e8f0;font-family:'DM Sans',sans-serif}
+.shell{display:flex;min-height:100vh;width:100vw;background:#060912;color:#e2e8f0;font-family:'DM Sans',sans-serif;overflow-x:hidden}
 .sidebar{width:240px;min-height:100vh;background:#080d1a;border-right:1px solid #0f1929;display:flex;flex-direction:column;flex-shrink:0;transition:transform .25s ease;z-index:50}
-.main{flex:1;overflow-y:auto;min-height:100vh;min-width:0}
+.main{flex:1;overflow-y:auto;min-height:100vh;min-width:0;width:100%}
 .topbar{background:#080d1a;border-bottom:1px solid #0f1929;padding:0 16px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
 .content{padding:28px}
 @media(max-width:768px){
@@ -150,9 +151,11 @@ body{background:#060912}
 .nav-item.active{color:#38bdf8;border-left-color:#38bdf8;background:#0a1120}
 .nav-section{padding:16px 20px 6px;font-size:10px;color:#1e3a5f;letter-spacing:.15em;text-transform:uppercase;font-family:'DM Mono',monospace}
 
+h1,h2,h3{font-stretch:normal;white-space:normal;word-break:break-word}
+
 /* Cards */
 .card{background:#0a1120;border:1px solid #0f1929;border-radius:14px;padding:22px}
-.kpi{background:linear-gradient(135deg,#0a1120 0%,#0d1528 100%);border:1px solid #0f1929;border-radius:14px;padding:22px;transition:.2s}
+.kpi{background:linear-gradient(135deg,#0a1120 0%,#0d1528 100%);border:1px solid #0f1929;border-radius:14px;padding:16px;transition:.2s;display:flex;flex-direction:column;justify-content:space-between;min-height:110px}
 .kpi:hover{transform:translateY(-2px);border-color:#1e3a5f}
 
 /* Table */
@@ -301,8 +304,8 @@ function LoginScreen({ form, setForm, onLogin, err }) {
   return (
     <>
       <style>{G}</style>
-      <div className="login-bg">
-        <div className="orb" style={{ width:400,height:400,background:"#1d4ed8",top:-100,left:-100 }} />
+      <div style={{ width:"100vw", height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#060912", position:"relative", overflow:"hidden" }}>
+        <div className="orb" style={{ width:100,height:400,background:"#1d4ed8",top:-100,left:-100 }} />
         <div className="orb" style={{ width:300,height:300,background:"#0891b2",bottom:-80,right:-80 }} />
         <div className="login-card fu">
           <div style={{ textAlign:"center", marginBottom:32 }}>
@@ -474,17 +477,22 @@ function Dashboard({ user, entries }) {
         {user.role==="student" ? "Your achievement summary at a glance" : user.role==="faculty" ? `${user.branch} department overview` : "Institution-wide NBA Criterion 4 overview"}
       </p>
 
-      <div className="kpi-grid" style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:24 }}>
+      <div className="kpi-grid" style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24,alignItems:"stretch" }}>
         {[
           { label:"Total Entries",     val:mine.length, color:"#38bdf8",  icon:"📊" },
           { label:"Approved",          val:approved,    color:"#10b981",  icon:"✅" },
           { label:"Flagged / Pending", val:flagged+pending, color:"#f59e0b", icon:"⚠️" },
           { label:"International",     val:intl,        color:"#818cf8",  icon:"🌍" },
         ].map((k,i)=>(
-          <div key={i} className="kpi" style={{ borderColor:k.color+"22" }}>
-            <div style={{ fontSize:24,marginBottom:8 }}>{k.icon}</div>
-            <div className="syne" style={{ fontSize:34,fontWeight:800,color:k.color,lineHeight:1 }}>{k.val}</div>
-            <div style={{ fontSize:12,color:"#334155",marginTop:4 }}>{k.label}</div>
+          <div key={i} className="kpi" style={{ borderColor:k.color+"22", padding:"18px 16px" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+              <div style={{ fontSize:20 }}>{k.icon}</div>
+              <div className="syne" style={{ fontSize:28,fontWeight:800,color:k.color,lineHeight:1 }}>{k.val}</div>
+            </div>
+            <div style={{ fontSize:12,color:"#64748b" }}>{k.label}</div>
+            <div style={{ marginTop:10,height:3,borderRadius:2,background:k.color+"33" }}>
+              <div style={{ height:"100%",width:`${Math.min(100,(k.val/Math.max(mine.length,1))*100)}%`,background:k.color,borderRadius:2,transition:"width .8s ease" }} />
+            </div>
           </div>
         ))}
       </div>
@@ -617,7 +625,7 @@ function SubmitAchievement({ user, entries, setEntries, setNotifs }) {
   );
 
   return (
-    <div style={{ maxWidth:680 }}>
+    <div style={{ maxWidth:680, width:"100%", boxSizing:"border-box" }}>
       <h2 className="syne" style={{ fontSize:20,fontWeight:800,color:"#f1f5f9",marginBottom:4 }}>Submit Achievement</h2>
       <p style={{ color:"#334155",fontSize:13,marginBottom:24 }}>AI will validate your entry before it appears in records</p>
 
@@ -865,7 +873,6 @@ function AllRecords({ user, entries }) {
   const [activeTab, setActiveTab] = useState("student");
 
   const base = user.role==="hod" ? entries : entries.filter(e=>e.branch===user.branch);
-
   const filtered = useMemo(()=>base.filter(e=>{
     if (filters.cat!=="All" && e.category!==filters.cat) return false;
     if (filters.status!=="All" && e.status!==filters.status) return false;
@@ -1020,7 +1027,7 @@ function FacultyAddEntry({ user, entries, setEntries }) {
   );
 
   return (
-    <div style={{ maxWidth:680 }}>
+    <div style={{ maxWidth:680, width:"100%", boxSizing:"border-box" }}>
       <h2 className="syne" style={{ fontSize:20,fontWeight:800,color:"#f1f5f9",marginBottom:4 }}>
         {user.role==="hod" ? "Add Department Event / Achievement" : "Add Event, Workshop or Research Activity"}
       </h2>
@@ -1104,7 +1111,7 @@ function MentorshipLog({ user, entries, setEntries }) {
   };
 
   return (
-    <div style={{ maxWidth:680 }}>
+    <div style={{ maxWidth:680, width:"100%", boxSizing:"border-box" }}>
       <h2 className="syne" style={{ fontSize:20,fontWeight:800,color:"#f1f5f9",marginBottom:4 }}>Mentorship Log</h2>
       <p style={{ color:"#334155",fontSize:13,marginBottom:24 }}>Log research groups, projects, or activities you mentored — counted toward NBA Criterion 4</p>
 
@@ -1158,27 +1165,96 @@ function MentorshipLog({ user, entries, setEntries }) {
    NBA REPORT
 ───────────────────────────────────────────── */
 function NBAReport({ user, entries }) {
+  console.log("Gemini Key:", import.meta.env.VITE_GEMINI_KEY);
   const base = user.role==="hod" ? entries : entries.filter(e=>e.branch===user.branch);
   const approved = base.filter(e=>e.status==="approved");
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [reportText, setReportText] = useState("");
+
+  const downloadPDF = () => {
+  const doc = new jsPDF();
+
+  doc.setFont("helvetica");
+  doc.setFontSize(12);
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 15;
+
+  const lines = doc.splitTextToSize(reportText, pageWidth - margin * 2);
+
+  doc.text("NBA Criterion 4 Report", margin, 20);
+  doc.text(lines, margin, 30);
+
+  doc.save("NBA_Criterion_4_Report.pdf");
+};
 
   const byCat = {};
   approved.forEach(e=>{ byCat[e.category]=(byCat[e.category]||0)+1; });
 
-  const generate=()=>{ setGenerating(true); setTimeout(()=>{ setGenerating(false); setGenerated(true); },2000); };
+  const summaryData = CATEGORIES.map(cat => {
+    const cd = approved.filter(e => e.category === cat);
+    if(!cd.length) return null;
+    return `${cat}: ${cd.length} entries (${cd.filter(e=>e.level==="International").length} International, ${cd.filter(e=>e.level==="National").length} National)`;
+  }).filter(Boolean).join("\n");
+
+  const generate = async () => {
+    setGenerating(true);
+    setReportText("");
+
+    const prompt = `You are an NBA accreditation expert. Generate a formal NBA Criterion 4 report section based on this data:
+      Department: ${user.branch === "ALL" ? "All Departments" : user.branch}
+      Academic Year: 2023-24
+      Total Approved Achievements: ${approved.length}
+      Breakdown: ${summaryData}
+     Write a professional 3-paragraph summary suitable for NBA accreditation documentation.
+     Include: student participation highlights, category-wise analysis, and overall assessment
+     of whether the department meets NBA Criterion 4 benchmarks. Use formal academic language.`;
+
+    try {
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const result = await model.generateContent(prompt);
+      setReportText(result.response.text());
+    } catch (err) {
+      setReportText("⚠ Error generating report. Check your API key in .env file.");
+    }
+
+    setGenerating(false);
+    setGenerated(true);
+  };
 
   return (
-    <div>
-      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24 }}>
+    <div style={{ width:"100%", boxSizing:"border-box" }}>
+      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:12 }}>
         <div>
           <h2 className="syne" style={{ fontSize:20,fontWeight:800,color:"#f1f5f9",marginBottom:4 }}>NBA Criterion 4 Report</h2>
           <p style={{ color:"#334155",fontSize:13 }}>Auto-generated from approved entries only · {approved.length} records included</p>
         </div>
         <button className="btn btn-blue" onClick={generate} disabled={generating}>
-          {generating ? <span className="pulse">⟳ Generating…</span> : generated ? "⬇ Export PDF" : "Generate Report"}
+          {generating ? <span className="pulse">⟳ Generating…</span> : generated ? "⟳ Regenerate" : "✨ Generate with Gemini AI"}
         </button>
       </div>
+
+      {/* AI Generated Summary */}
+      {generating && (
+        <div className="card" style={{ marginBottom:20,borderColor:"#38bdf833",textAlign:"center",padding:32 }}>
+          <div className="spin" style={{ fontSize:28,display:"inline-block",color:"#38bdf8" }}>↻</div>
+          <div style={{ color:"#334155",fontSize:13,marginTop:12 }}>Gemini AI is writing your NBA report…</div>
+        </div>
+      )}
+      {reportText && !generating && (
+        <div className="card" style={{ marginBottom:20,borderColor:"#38bdf833" }}>
+          <h3 className="mono" style={{ fontSize:11,color:"#38bdf8",letterSpacing:".1em",textTransform:"uppercase",marginBottom:16 }}>✨ AI Generated NBA Summary</h3>
+          <p style={{ color:"#94a3b8",lineHeight:1.9,fontSize:14,whiteSpace:"pre-wrap" }}>{reportText}</p>
+        </div>
+      )}
+      {reportText && !generating && (
+        <button className="btn btn-blue" onClick={downloadPDF}>
+          ⬇ Download PDF
+        </button>
+      )}
 
       {/* Compliance */}
       <div className="card" style={{ marginBottom:20 }}>
@@ -1195,7 +1271,7 @@ function NBAReport({ user, entries }) {
           const ok=item.actual>=item.target;
           return (
             <div key={i} style={{ marginBottom:16 }}>
-              <div style={{ display:"flex",justifyContent:"space-between",marginBottom:5 }}>
+              <div style={{ display:"flex",justifyContent:"space-between",marginBottom:5,flexWrap:"wrap",gap:4 }}>
                 <span style={{ fontSize:13,color:"#94a3b8" }}>{item.label}</span>
                 <div style={{ display:"flex",gap:8,alignItems:"center" }}>
                   <span className="mono" style={{ fontSize:11,color:"#475569" }}>{item.actual}/{item.target}</span>
@@ -1243,31 +1319,33 @@ function NBAReport({ user, entries }) {
       {/* Summary */}
       <div className="card" style={{ borderColor:"#38bdf833" }}>
         <h3 className="mono" style={{ fontSize:11,color:"#334155",letterSpacing:".1em",textTransform:"uppercase",marginBottom:16 }}>Consolidated Summary</h3>
-        <table>
-          <thead><tr><th>Category</th><th>International</th><th>National</th><th>State/Industry</th><th>Total</th></tr></thead>
-          <tbody>
-            {CATEGORIES.map(cat=>{
-              const cd=approved.filter(e=>e.category===cat);
-              if(!cd.length) return null;
-              return (
-                <tr key={cat}>
-                  <td style={{ color:"#e2e8f0",fontWeight:600 }}>{catIcons[cat]} {cat}</td>
-                  <td className="mono" style={{ color:"#60a5fa" }}>{cd.filter(e=>e.level==="International").length}</td>
-                  <td className="mono" style={{ color:"#4ade80" }}>{cd.filter(e=>e.level==="National").length}</td>
-                  <td className="mono" style={{ color:"#a78bfa" }}>{cd.filter(e=>!["International","National"].includes(e.level)).length}</td>
-                  <td className="mono" style={{ color:"#f59e0b",fontWeight:700 }}>{cd.length}</td>
-                </tr>
-              );
-            })}
-            <tr style={{ background:"#0f1929" }}>
-              <td style={{ color:"#f1f5f9",fontWeight:700 }}>TOTAL</td>
-              <td className="mono" style={{ color:"#60a5fa",fontWeight:700 }}>{approved.filter(e=>e.level==="International").length}</td>
-              <td className="mono" style={{ color:"#4ade80",fontWeight:700 }}>{approved.filter(e=>e.level==="National").length}</td>
-              <td className="mono" style={{ color:"#a78bfa",fontWeight:700 }}>{approved.filter(e=>!["International","National"].includes(e.level)).length}</td>
-              <td className="mono" style={{ color:"#f59e0b",fontWeight:700,fontSize:16 }}>{approved.length}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="tbl-wrap">
+          <table>
+            <thead><tr><th>Category</th><th>International</th><th>National</th><th>State/Industry</th><th>Total</th></tr></thead>
+            <tbody>
+              {CATEGORIES.map(cat=>{
+                const cd=approved.filter(e=>e.category===cat);
+                if(!cd.length) return null;
+                return (
+                  <tr key={cat}>
+                    <td style={{ color:"#e2e8f0",fontWeight:600 }}>{catIcons[cat]} {cat}</td>
+                    <td className="mono" style={{ color:"#60a5fa" }}>{cd.filter(e=>e.level==="International").length}</td>
+                    <td className="mono" style={{ color:"#4ade80" }}>{cd.filter(e=>e.level==="National").length}</td>
+                    <td className="mono" style={{ color:"#a78bfa" }}>{cd.filter(e=>!["International","National"].includes(e.level)).length}</td>
+                    <td className="mono" style={{ color:"#f59e0b",fontWeight:700 }}>{cd.length}</td>
+                  </tr>
+                );
+              })}
+              <tr style={{ background:"#0f1929" }}>
+                <td style={{ color:"#f1f5f9",fontWeight:700 }}>TOTAL</td>
+                <td className="mono" style={{ color:"#60a5fa",fontWeight:700 }}>{approved.filter(e=>e.level==="International").length}</td>
+                <td className="mono" style={{ color:"#4ade80",fontWeight:700 }}>{approved.filter(e=>e.level==="National").length}</td>
+                <td className="mono" style={{ color:"#a78bfa",fontWeight:700 }}>{approved.filter(e=>!["International","National"].includes(e.level)).length}</td>
+                <td className="mono" style={{ color:"#f59e0b",fontWeight:700,fontSize:16 }}>{approved.length}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
